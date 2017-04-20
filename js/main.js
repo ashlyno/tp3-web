@@ -15,17 +15,20 @@ $(function() {
             height = 500,
             drawWidth = width - margin.left - margin.right,
             drawHeight = height - margin.top - margin.bottom,
+            diameter = 900,
             measure = 'fertility_rate'; // variable to visualize
 
         // Append a wrapper div for the chart
-        var div = d3.select('#vis')
-            .append("div")
-            .attr('height', height)
-            .attr('width', width)
+        var svg = d3.select('#vis')
+            .append("svg")
+            .attr('height', diameter)
+            .attr('width', diameter)
             .style("left", margin.left + "px")
             .style("top", margin.top + "px");
-
-        /* ********************************** Create hierarchical data structure & treemap function  ********************************** */
+        var g = svg.append('g')
+            .attr('height', diameter)
+            .attr('width', diameter);
+                /* ********************************** Create hierarchical data structure & treemap function  ********************************** */
 
         // Nest your data *by region* using d3.nest()
         var nestedData = d3.nest()
@@ -43,10 +46,8 @@ $(function() {
 
 
         // Create a *treemap function* that will compute your layout given your data structure
-        var treemap = d3.treemap() // function that returns a function!
-            .size([width, height]) // set size: scaling will be done internally
-            .round(true)
-            .tile(d3.treemapResquarify)
+        var pack = d3.pack() // function that returns a function!
+            .size([diameter, diameter]) // set size: scaling will be done internally
             .padding(0);
 
         /* ********************************** Create an ordinal color scale  ********************************** */
@@ -58,58 +59,58 @@ $(function() {
 
         // Set an ordinal scale for colors
         var colorScale = d3.scaleOrdinal().domain(regions).range(d3.schemeCategory10);
-
         /* ********************************** Write a function to perform the data-join  ********************************** */
 
         // Write your `draw` function to bind data, and position elements
         var draw = function() {
-
             // Redefine which value you want to visualize in your data by using the `.sum()` method
             root.sum(function(d) {
                 return +d[measure];
+            }).sort(function(a, b) {
+                return b.value - a.value;
             });
 
             // (Re)build your treemap data structure by passing your `root` to your `treemap` function
-            treemap(root);
+            pack(root);
 
             // Bind your data to a selection of elements with class node
             // The data that you want to join is array of elements returned by `root.leaves()`
-            var nodes = div.selectAll(".node").data(root.leaves());
-
+            var nodes = g.selectAll(".node").data(root.leaves());
             // Enter and append elements, then position them using the appropriate *styles*
             nodes.enter()
-                .append("div")
+                .append("circle")
                 .text(function(d) {
                     return d.data.country_code;
                 })
                 .merge(nodes)
                 .attr('class', 'node')
                 .transition().duration(1500)
-                .style("left", function(d, i) {
-                    return d.x0 + "px";
+                .attr("transform", function(d){
+                    return "translate("+d.x+","+d.y+")";
                 })
-                .style("top", function(d) {
-                    return d.y0 + "px";
+                .attr("x", function(d) {
+                    console.log(d.x);
+                    return d.x;
                 })
-                .style('width', function(d) {
-                    return d.x1 - d.x0 + 'px';
+                .attr("y", function(d) {
+                    return d.y;
                 })
-                .style("height", function(d) {
-                    return d.y1 - d.y0 + "px";
+                .attr("r", function(d) {
+                    return d.r;
                 })
-                .style("background", function(d, i) {
+                .attr("fill", function(d) {
                     return colorScale(d.data.region);
                 });
+                nodes.exit().remove();
+
         };
 
         // Call your draw function
         draw();
-
         // Listen to change events on the input elements
         $("input").on('change', function() {
             // Set your measure variable to the value (which is used in the draw funciton)
             measure = $(this).val();
-
             // Draw your elements
             draw();
         });
